@@ -205,11 +205,11 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   overflow: hidden;
   position: absolute;
 }
-.schematic-map::before { background: rgba(255,255,255,.34); border: 1px solid rgba(16,45,47,.08); border-radius: 43% 57% 63% 37% / 33% 43% 57% 67%; content: ""; inset: 8% 20% 9% 19%; position: absolute; transform: rotate(-5deg); }
-.schematic-map--local::before { border-radius: 62% 38% 54% 46% / 49% 58% 42% 51%; inset: 20% 12%; transform: rotate(-3deg); }
+.schematic-map::before { background: linear-gradient(155deg, rgba(255,255,255,.5), rgba(205,225,216,.32)); border: 1px solid rgba(16,45,47,.07); clip-path: polygon(34% 2%, 53% 5%, 69% 14%, 75% 25%, 68% 35%, 78% 43%, 69% 52%, 65% 61%, 66% 71%, 56% 81%, 48% 94%, 35% 100%, 22% 91%, 20% 77%, 10% 66%, 13% 51%, 5% 39%, 14% 27%, 18% 15%); content: ""; inset: 7% 19% 8% 16%; position: absolute; }
+.schematic-map--local::before { border-radius: 62% 38% 54% 46% / 49% 58% 42% 51%; clip-path: none; inset: 20% 12%; transform: rotate(-3deg); }
 .schematic-map__grid { background-image: linear-gradient(rgba(16,45,47,.045) 1px, transparent 1px), linear-gradient(90deg, rgba(16,45,47,.045) 1px, transparent 1px); background-size: 42px 42px; inset: 0; mask-image: linear-gradient(to bottom, transparent, #000 12%, #000 88%, transparent); position: absolute; }
-.schematic-map__caption { bottom: 17px; color: rgba(16,45,47,.5); font-size: 8px; left: 18px; letter-spacing: .07em; position: absolute; }
-.map-bubble { align-items: center; backdrop-filter: blur(5px); background: var(--mint); background: radial-gradient(circle at 32% 25%, rgba(255,255,255,.56), transparent 28%), color-mix(in srgb, var(--coral) calc(var(--heat) * 76%), var(--mint)); border: 2px solid rgba(255,255,255,.84); border-radius: 50%; box-shadow: 0 0 0 calc(4px + var(--heat) * 6px) rgba(240,107,76,calc(.03 + var(--heat) * .08)), 0 10px 25px rgba(35,74,73,.17); cursor: pointer; display: flex; flex-direction: column; justify-content: center; overflow: hidden; padding: 5px; position: absolute; transform: translate(-50%,-50%); transition: transform .2s ease, box-shadow .2s ease; }
+.schematic-map__caption { bottom: 17px; color: rgba(16,45,47,.5); font-size: 8px; letter-spacing: .07em; position: absolute; right: 18px; }
+.map-bubble { align-items: center; background: color-mix(in srgb, var(--coral) calc(var(--heat) * 76%), var(--mint)); border: 2px solid rgba(255,255,255,.92); border-radius: 50%; box-shadow: 0 0 0 calc(2px + var(--heat) * 3px) rgba(240,107,76,calc(.025 + var(--heat) * .055)), 0 8px 19px rgba(35,74,73,.15); cursor: pointer; display: flex; flex-direction: column; justify-content: center; left: calc(var(--map-x) * 1%); overflow: hidden; padding: 5px; position: absolute; top: calc(var(--map-y) * 1%); transform: translate(-50%,-50%); transition: transform .2s ease, box-shadow .2s ease; }
 .map-bubble:hover { box-shadow: 0 0 0 7px rgba(240,107,76,.13), 0 15px 32px rgba(35,74,73,.24); transform: translate(-50%,-50%) scale(1.08); }
 .map-bubble span { color: rgba(16,45,47,.84); font-size: 8px; font-weight: 900; line-height: 1; }
 .map-bubble strong { color: var(--ink); font-size: 11px; font-weight: 950; letter-spacing: -.04em; line-height: 1; margin-top: 4px; }
@@ -338,8 +338,9 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   .map-stage, .schematic-map, .rank-map, .naver-map-wrap, .naver-map-canvas { min-height: 610px; }
   .schematic-map, .rank-map, .naver-map-wrap { border-radius: 20px; }
   .schematic-map::before { inset: 10% 5% 18%; }
-  .map-bubble { transform: translate(-50%,-50%) scale(.86); }
-  .map-bubble:hover { transform: translate(-50%,-50%) scale(.91); }
+  .map-bubble { transform: translate(-50%,-50%) scale(.82); }
+  .map-bubble--national { left: calc(var(--map-mobile-x) * 1%); top: calc(var(--map-mobile-y) * 1%); }
+  .map-bubble:hover { transform: translate(-50%,-50%) scale(.88); }
   .map-top-list { bottom: 10px; gap: 4px; max-width: calc(100% - 20px); overflow-x: auto; padding: 7px; }
   .map-top-list > span { display: none; }
   .map-top-list button { padding: 8px; }

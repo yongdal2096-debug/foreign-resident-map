@@ -69,6 +69,46 @@ interface Selection {
 const PRIMARY_METRIC: MetricKey = "chinaCombined";
 const numberFormat = new Intl.NumberFormat("ko-KR");
 
+const NATIONAL_MAP_LAYOUT: Record<string, { x: number; y: number }> = {
+  서울: { x: 35, y: 15 },
+  부산: { x: 68, y: 74 },
+  대구: { x: 61, y: 52 },
+  인천: { x: 24, y: 18 },
+  광주: { x: 29, y: 67 },
+  대전: { x: 37, y: 46 },
+  울산: { x: 76, y: 58 },
+  세종: { x: 39, y: 34 },
+  경기: { x: 44, y: 24 },
+  강원: { x: 63, y: 14 },
+  충북: { x: 50, y: 36 },
+  충남: { x: 27, y: 35 },
+  전북: { x: 42, y: 57 },
+  전남: { x: 40, y: 76 },
+  경북: { x: 68, y: 39 },
+  경남: { x: 56, y: 68 },
+  제주: { x: 25, y: 88 },
+};
+
+const NATIONAL_MOBILE_MAP_LAYOUT: Record<string, { x: number; y: number }> = {
+  서울: { x: 38, y: 12 },
+  부산: { x: 75, y: 80 },
+  대구: { x: 75, y: 46 },
+  인천: { x: 12, y: 12 },
+  광주: { x: 12, y: 63 },
+  대전: { x: 25, y: 46 },
+  울산: { x: 88, y: 63 },
+  세종: { x: 38, y: 29 },
+  경기: { x: 63, y: 12 },
+  강원: { x: 88, y: 12 },
+  충북: { x: 63, y: 29 },
+  충남: { x: 12, y: 29 },
+  전북: { x: 50, y: 46 },
+  전남: { x: 38, y: 63 },
+  경북: { x: 88, y: 29 },
+  경남: { x: 63, y: 63 },
+  제주: { x: 25, y: 80 },
+};
+
 function per100(part: number, population: number) {
   return population ? (part / population) * 100 : 0;
 }
@@ -398,22 +438,32 @@ function SchematicMap({
       <div className="schematic-map__grid" />
       <div className="schematic-map__caption">공개 집계 데이터 · 개인 위치 아님</div>
       {points.map((point) => {
-        const x = ((point.lng - bounds.minLng) / Math.max(bounds.maxLng - bounds.minLng, 0.01)) * 100;
-        const y = ((bounds.maxLat - point.lat) / Math.max(bounds.maxLat - bounds.minLat, 0.01)) * 100;
+        const nationalPosition = point.province
+          ? NATIONAL_MAP_LAYOUT[point.province.shortName]
+          : null;
+        const mobilePosition = point.province
+          ? NATIONAL_MOBILE_MAP_LAYOUT[point.province.shortName]
+          : null;
+        const x = nationalPosition?.x
+          ?? ((point.lng - bounds.minLng) / Math.max(bounds.maxLng - bounds.minLng, 0.01)) * 100;
+        const y = nationalPosition?.y
+          ?? ((bounds.maxLat - point.lat) / Math.max(bounds.maxLat - bounds.minLat, 0.01)) * 100;
         const rate = rateFor(point.entity);
         const intensity = Math.sqrt(rate / maxValue);
-        const size = 48 + intensity * 54;
+        const size = selectedProvince ? 52 + intensity * 34 : 52 + intensity * 24;
         return (
           <button
-            className="map-bubble"
+            className={`map-bubble ${point.province ? "map-bubble--national" : ""}`}
             key={point.id}
             style={{
-              left: `${Math.min(94, Math.max(6, x))}%`,
-              top: `${Math.min(92, Math.max(8, y))}%`,
               width: `${size}px`,
               height: `${size}px`,
               zIndex: Math.round(intensity * 10) + 1,
               "--heat": intensity,
+              "--map-x": Math.min(92, Math.max(8, x)),
+              "--map-y": Math.min(89, Math.max(9, y)),
+              "--map-mobile-x": mobilePosition?.x ?? x,
+              "--map-mobile-y": mobilePosition?.y ?? y,
             } as React.CSSProperties}
             type="button"
             onClick={() => {
