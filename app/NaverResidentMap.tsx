@@ -15,6 +15,7 @@ interface MapLike {
 
 interface OverlayLike {
   setMap(map: MapLike | null): void;
+  setZIndex(zIndex: number): void;
 }
 
 interface GeocodeResponse {
@@ -106,6 +107,19 @@ function rateFor(entity: Counts) {
 
 function formatPer100(rate: number) {
   return rate.toFixed(rate >= 10 ? 1 : 2);
+}
+
+function escapeMarkerText(value: string) {
+  return value.replace(/[&<>"']/g, (character) => {
+    const entities: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;",
+    };
+    return entities[character];
+  });
 }
 
 function cacheKey(province: Province, district: District) {
@@ -300,21 +314,36 @@ export default function NaverResidentMap({
 
     for (const point of drawablePoints) {
       const intensity = Math.sqrt(point.value / maxValue);
+      const formattedValue = formatPer100(point.value);
+      const markerLabel = `${point.label} 지역 인구 100명당 ${formattedValue}명`;
+      const safeLabel = escapeMarkerText(point.label);
+      const safeMarkerLabel = escapeMarkerText(markerLabel);
+      const isProvinceMarker = Boolean(point.province);
+      const baseZIndex = Math.round(intensity * 100);
       const marker = new naver.maps.Marker({
         map,
         position: new naver.maps.LatLng(point.lat, point.lng),
         icon: {
-          content: `<button class="naver-data-marker" style="--marker-heat:${intensity.toFixed(3)}" aria-label="${point.label} 지역 인구 100명당 ${formatPer100(point.value)}명"><span>${point.label}</span><strong>${formatPer100(point.value)}명</strong></button>`,
-          anchor: { x: 32, y: 32 },
+          content: isProvinceMarker
+            ? `<button class="naver-data-marker naver-data-marker--province" style="--marker-heat:${intensity.toFixed(3)}" aria-label="${safeMarkerLabel}"><i aria-hidden="true"></i><span class="naver-data-marker__tooltip" aria-hidden="true"><b>${safeLabel}</b><strong>${formattedValue}명</strong></span></button>`
+            : `<button class="naver-data-marker" style="--marker-heat:${intensity.toFixed(3)}" aria-label="${safeMarkerLabel}"><span>${safeLabel}</span><strong>${formattedValue}명</strong></button>`,
+          anchor: isProvinceMarker ? { x: 8, y: 8 } : { x: 32, y: 32 },
         },
-        zIndex: Math.round(intensity * 100),
+        title: markerLabel,
+        zIndex: baseZIndex,
       });
       markerRefs.current.push(marker);
       if (point.province) {
+        const mouseoverListener = naver.maps.Event.addListener(marker, "mouseover", () => {
+          marker.setZIndex(1000);
+        });
+        const mouseoutListener = naver.maps.Event.addListener(marker, "mouseout", () => {
+          marker.setZIndex(baseZIndex);
+        });
         const listener = naver.maps.Event.addListener(marker, "click", () => {
           onSelectProvince(point.province as Province);
         });
-        listenerRefs.current.push(listener);
+        listenerRefs.current.push(mouseoverListener, mouseoutListener, listener);
       } else if (selectedProvince && point.district) {
         const listener = naver.maps.Event.addListener(marker, "click", () => {
           onSelectDistrict(selectedProvince, point.district as District);
