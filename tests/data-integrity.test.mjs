@@ -2,9 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 
-const snapshot = JSON.parse(
-  await readFile(new URL("../app/data/residents.json", import.meta.url), "utf8"),
+async function readJson(path) {
+  return JSON.parse(await readFile(new URL(path, import.meta.url), "utf8"));
+}
+
+const summary = await readJson("../app/data/summary.json");
+const provinceChunks = await Promise.all(
+  [1, 2, 3, 4, 5].map((index) => readJson(`../app/data/provinces-${index}.json`)),
 );
+const snapshot = { ...summary, provinces: provinceChunks.flat() };
 
 test("province totals reconcile to the national snapshot", () => {
   assert.equal(snapshot.provinces.length, 17);
