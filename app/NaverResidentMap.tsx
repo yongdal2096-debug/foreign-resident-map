@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { District, MetricKey, Province } from "./ResidentDashboard";
+import type { Counts, District, Province } from "./ResidentDashboard";
 
 interface LatLngLike {
   lat(): number;
@@ -15,11 +15,6 @@ interface MapLike {
 
 interface OverlayLike {
   setMap(map: MapLike | null): void;
-}
-
-interface HeatMapLike extends OverlayLike {
-  setData(data: unknown[]): void;
-  redraw(): void;
 }
 
 interface GeocodeResponse {
@@ -45,10 +40,6 @@ interface NaverApi {
         callback: (status: string, response: GeocodeResponse) => void,
       ): void;
     };
-    visualization: {
-      HeatMap: new (options: Record<string, unknown>) => HeatMapLike;
-      SpectrumStyle: { HOT: unknown };
-    };
     jsContentLoaded?: boolean;
     onJSContentLoaded?: () => void;
   };
@@ -67,6 +58,7 @@ interface MapPoint {
   lng: number;
   value: number;
   province?: Province;
+  district?: District;
 }
 
 let naverLoader: Promise<NaverApi> | null = null;
@@ -99,7 +91,7 @@ function loadNaverSdk(clientId: string) {
     const script = document.createElement("script");
     script.dataset.residentNaverMap = "true";
     script.async = true;
-    script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${encodeURIComponent(clientId)}&submodules=visualization,geocoder`;
+    script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${encodeURIComponent(clientId)}&submodules=geocoder`;
     script.onload = finish;
     script.onerror = () => reject(new Error("Naver Maps SDK load failed"));
     document.head.appendChild(script);
@@ -108,10 +100,12 @@ function loadNaverSdk(clientId: string) {
   return naverLoader;
 }
 
-function compact(value: number) {
-  if (value >= 10000) return `${(value / 10000).toFixed(value >= 100000 ? 1 : 2)}만`;
-  if (value >= 1000) return `${(value / 1000).toFixed(1)}천`;
-  return new Intl.NumberFormat("ko-KR").format(value);
+function rateFor(entity: Counts) {
+  return entity.population ? (entity.chinaCombined / entity.population) * 100 : 0;
+}
+
+function formatPer100(rate: number) {
+  return rate.toFixed(rate >= 10 ? 1 : 2);
 }
 
 function cacheKey(province: Province, district: District) {
@@ -152,6 +146,7 @@ async function resolveDistricts(naver: NaverApi, province: Province) {
         lat: district.lat,
         lng: district.lng,
         value: 0,
+        district,
       });
       continue;
     }
@@ -159,7 +154,7 @@ async function resolveDistricts(naver: NaverApi, province: Province) {
     if (cached) {
       try {
         const coordinate = JSON.parse(cached) as { lat: number; lng: number };
-        resolved.push({ id: district.name, label: district.name, ...coordinate, value: 0 });
+        resolved.push({ id: district.name, label: district.name, ...coordinate, value: 0, district });
         continue;
       } catch {
         sessionStorage.removeItem(cacheKey(province, district));
@@ -182,6 +177,7 @@ async function resolveDistricts(naver: NaverApi, province: Province) {
         label: district.name,
         ...coordinate,
         value: 0,
+        district,
       });
     });
   }
@@ -193,18 +189,17 @@ export default function NaverResidentMap({
   clientId,
   provinces,
   selectedProvince,
-  metric,
   onSelectProvince,
+  onSelectDistrict,
 }: {
   clientId: string;
   provinces: Province[];
   selectedProvince: Province | null;
-  metric: MetricKey;
   onSelectProvince: (province: Province) => void;
+  onSelectDistrict: (province: Province, district: District) => void;
 }) {
   const elementRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLike | null>(null);
-  const heatMapRef = useRef<HeatMapLike | null>(null);
   const markerRefs = useRef<OverlayLike[]>([]);
   const listenerRefs = useRef<unknown[]>([]);
   const [naver, setNaver] = useState<NaverApi | null>(null);
@@ -236,20 +231,28 @@ export default function NaverResidentMap({
 
   useEffect(() => {
     if (!naver || !selectedProvince) {
-      setDistrictCoordinates([]);
-      return;
+      const frame = window.requestAnimationFrame(() => {
+        setDistrictCoordinates([]);
+        if (naver) setStatus("ready");
+      });
+      return () => window.cancelAnimationFrame(frame);
     }
     let cancelled = false;
-    setStatus("loading");
-    resolveDistricts(naver, selectedProvince)
-      .then((coordinates) => {
-        if (cancelled) return;
-        setDistrictCoordinates(coordinates);
-        setStatus("ready");
-      })
-      .catch(() => !cancelled && setStatus("error"));
+    const frame = window.requestAnimationFrame(() => {
+      if (cancelled) return;
+      setDistrictCoordinates([]);
+      setStatus("loading");
+      resolveDistricts(naver, selectedProvince)
+        .then((coordinates) => {
+          if (cancelled) return;
+          setDistrictCoordinates(coordinates);
+          setStatus("ready");
+        })
+        .catch(() => !cancelled && setStatus("error"));
+    });
     return () => {
       cancelled = true;
+      window.cancelAnimationFrame(frame);
     };
   }, [naver, selectedProvince]);
 
@@ -260,7 +263,7 @@ export default function NaverResidentMap({
         label: province.shortName,
         lat: province.lat,
         lng: province.lng,
-        value: province[metric],
+        value: rateFor(province),
         province,
       }));
     }
@@ -269,40 +272,39 @@ export default function NaverResidentMap({
     );
     return districtCoordinates.map((point) => ({
       ...point,
-      value: districtByName.get(point.id)?.[metric] ?? 0,
+      value: districtByName.has(point.id)
+        ? rateFor(districtByName.get(point.id) as District)
+        : 0,
+      district: districtByName.get(point.id),
     }));
-  }, [districtCoordinates, metric, provinces, selectedProvince]);
+  }, [districtCoordinates, provinces, selectedProvince]);
 
   useEffect(() => {
     if (!naver || !mapRef.current || points.length === 0) return;
     const map = mapRef.current;
 
+    const drawablePoints = points.filter(
+      (point) =>
+        Number.isFinite(point.lat) &&
+        Number.isFinite(point.lng) &&
+        Number.isFinite(point.value) &&
+        point.value >= 0,
+    );
+    if (drawablePoints.length === 0) return;
+
     markerRefs.current.forEach((marker) => marker.setMap(null));
     markerRefs.current = [];
     listenerRefs.current.forEach((listener) => naver.maps.Event.removeListener(listener));
     listenerRefs.current = [];
-    heatMapRef.current?.setMap(null);
+    const maxValue = Math.max(...drawablePoints.map((point) => point.value), 1);
 
-    const heatData = points.map((point) => ({
-      weight: point.value,
-      location: [point.lng, point.lat],
-    }));
-    heatMapRef.current = new naver.maps.visualization.HeatMap({
-      map,
-      data: heatData,
-      colorMap: naver.maps.visualization.SpectrumStyle.HOT,
-      radius: selectedProvince ? 34 : 48,
-      opacity: 0.68,
-    });
-
-    const maxValue = Math.max(...points.map((point) => point.value), 1);
-    for (const point of points) {
+    for (const point of drawablePoints) {
       const intensity = Math.sqrt(point.value / maxValue);
       const marker = new naver.maps.Marker({
         map,
         position: new naver.maps.LatLng(point.lat, point.lng),
         icon: {
-          content: `<button class="naver-data-marker" style="--marker-heat:${intensity.toFixed(3)}" aria-label="${point.label} ${compact(point.value)}"><span>${point.label}</span><strong>${compact(point.value)}</strong></button>`,
+          content: `<button class="naver-data-marker" style="--marker-heat:${intensity.toFixed(3)}" aria-label="${point.label} 지역 인구 100명당 ${formatPer100(point.value)}명"><span>${point.label}</span><strong>${formatPer100(point.value)}명</strong></button>`,
           anchor: { x: 32, y: 32 },
         },
         zIndex: Math.round(intensity * 100),
@@ -311,6 +313,11 @@ export default function NaverResidentMap({
       if (point.province) {
         const listener = naver.maps.Event.addListener(marker, "click", () => {
           onSelectProvince(point.province as Province);
+        });
+        listenerRefs.current.push(listener);
+      } else if (selectedProvince && point.district) {
+        const listener = naver.maps.Event.addListener(marker, "click", () => {
+          onSelectDistrict(selectedProvince, point.district as District);
         });
         listenerRefs.current.push(listener);
       }
@@ -327,16 +334,18 @@ export default function NaverResidentMap({
       markerRefs.current = [];
       listenerRefs.current.forEach((listener) => naver.maps.Event.removeListener(listener));
       listenerRefs.current = [];
-      heatMapRef.current?.setMap(null);
     };
-  }, [naver, onSelectProvince, points, selectedProvince]);
+  }, [naver, onSelectDistrict, onSelectProvince, points, selectedProvince]);
+
+  if (status === "error") {
+    return <div className="map-connection-note">지도 연결이 불안정해 기본 데이터 지도로 표시합니다.</div>;
+  }
 
   return (
-    <div className="naver-map-wrap">
-      <div ref={elementRef} className="naver-map-canvas" aria-label="네이버 지도 기반 외국인 체류 밀집도" />
+    <div className={`naver-map-wrap naver-map-wrap--${status}`}>
+      <div ref={elementRef} className="naver-map-canvas" aria-label="네이버 지도 기반 지역 인구 100명당 중국계 등록외국인 수" />
       {status === "loading" && <div className="map-loading"><i />행정구역 좌표를 불러오는 중</div>}
-      {status === "error" && <div className="map-error">지도 또는 지오코딩 기능을 확인해 주세요.</div>}
-      <div className="map-provider-badge">NAVER MAPS · HEATMAP</div>
+      <div className="map-provider-badge">NAVER MAPS · DATA BUBBLES</div>
     </div>
   );
 }
