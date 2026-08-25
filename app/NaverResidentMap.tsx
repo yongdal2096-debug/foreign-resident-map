@@ -327,7 +327,7 @@ export default function NaverResidentMap({
           content: isProvinceMarker
             ? `<button class="naver-data-marker naver-data-marker--province" style="--marker-heat:${intensity.toFixed(3)}" aria-label="${safeMarkerLabel}"><i aria-hidden="true"></i><span class="naver-data-marker__tooltip" aria-hidden="true"><b>${safeLabel}</b><strong>${formattedValue}명</strong></span></button>`
             : `<button class="naver-data-marker" style="--marker-heat:${intensity.toFixed(3)}" aria-label="${safeMarkerLabel}"><span>${safeLabel}</span><strong>${formattedValue}명</strong></button>`,
-          anchor: isProvinceMarker ? { x: 8, y: 8 } : { x: 32, y: 32 },
+          anchor: isProvinceMarker ? { x: 5, y: 5 } : { x: 32, y: 32 },
         },
         title: markerLabel,
         zIndex: baseZIndex,
