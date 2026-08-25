@@ -75,7 +75,7 @@ Cloudflare 대시보드에는 이름이 같은 두 항목이 보인다.
 
 ## 4. 현재 운영 검증 상태
 
-현재 `main` 기준 커밋:
+현재 기능 기준 커밋:
 
 - `e47910273df43623cfb7b455a30376e75a6a5f9c`
 - 메시지: `fix: keep dense province marker centers clickable`
@@ -98,7 +98,7 @@ Cloudflare 대시보드에는 이름이 같은 두 항목이 보인다.
 - 상위 3개 요약 바와 네이버 줌 컨트롤 비간섭 확인
 - 지도 연결 오류 안내 없음
 - 브라우저 페이지 오류 없음
-- GitHub CI 성공: `https://github.com/yongdal2096-debug/foreign-resident-map/actions/runs/32861992638`
+- GitHub 기능 커밋 CI 성공: `https://github.com/yongdal2096-debug/foreign-resident-map/actions/runs/32861992638`
 
 ## 5. 데이터와 대표 지표
 
